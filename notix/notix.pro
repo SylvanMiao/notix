@@ -1,4 +1,4 @@
-QT       += core gui
+QT       += core gui network
 
 greaterThan(QT_MAJOR_VERSION, 4): QT += widgets
 
@@ -11,6 +11,7 @@ DESTDIR = $$PWD/bin
 
 # SOURCES
 SOURCES += \
+    Sources/HttpMgr.cpp \
     Sources/global.cpp \
     Sources/main.cpp \
     Sources/mainwindow.cpp \
@@ -19,6 +20,7 @@ SOURCES += \
 
 # HEADERS
 HEADERS += \
+    Headers/HttpMgr.h \
     Headers/global.h \
     Headers/mainwindow.h \
     Headers/logindialog.h \
