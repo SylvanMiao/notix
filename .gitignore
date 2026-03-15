@@ -1,0 +1,25 @@
+# 忽略所有 build 目录和以 build 开头的文件
+**/build/
+**/build
+/build/
+build/
+build.*
+*build*
+
+# 常见构建产物
+bin/
+obj/
+dist/
+out/
+target/
+*.class
+*.o
+*.so
+*.dll
+*.exe
+*.jar
+*.war
+*.ear
+*.pyc
+__pycache__/
+
