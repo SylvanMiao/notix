@@ -1,1 +1,0 @@
-  -L"E:/003 DIY/Software/2. SOFTWARE_PROJ/3. notix/gateserver/thirdparty/boost/stage/lib"  -L"E:/003 DIY/Software/2. SOFTWARE_PROJ/3. notix/gateserver/thirdparty/jsoncpp/lib"  -lboost_filesystem-mgw14-mt-x64-1_84 -lboost_system-mgw14-mt-x64-1_84 -lkernel32 -luser32 -lgdi32 -lwinspool -lshell32 -lole32 -loleaut32 -luuid -lcomdlg32 -ladvapi32 
