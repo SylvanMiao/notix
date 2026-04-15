@@ -1,6 +1,5 @@
 #include "beast_http.h"
 
-
 void http_server(tcp::acceptor &acceptor)
 {
   acceptor.async_accept(

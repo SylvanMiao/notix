@@ -1,7 +1,6 @@
 #include "beast_http.h"
 #include "program_state_test.h"
-#include "staticroute.h"
-#include "dynamicroute.h"
+#include "router.h"
 
 http_connection::http_connection(tcp::socket socket) : _socket(std::move(socket))
 {
@@ -61,29 +60,22 @@ void http_connection::process_request()
   _response.set(http::field::server, "Beast");
 
   const auto method = _request.method();
-  const auto target = router::normalize_target(_request.target());
+  const auto route_result = router::Router::default_router().match(method, _request.target());
 
   switch (method)
   {
   case http::verb::get:
   {
     _response.result(http::status::ok);
-    const auto static_match = router::match_static_route(method, target);
-    if (static_match == router::static_route::count ||
-        static_match == router::static_route::time)
+    if (route_result.kind == router::Router::match_kind::static_match)
     {
       create_get_response();
       break;
     }
 
-    router::route_params params;
-    if (router::match_dynamic_route(
-            {http::verb::get, std::string(router::TimeByZoneRoute)},
-            method,
-            target,
-            params))
+    if (route_result.kind == router::Router::match_kind::dynamic_match)
     {
-      create_dynamic_get_response(params);
+      create_dynamic_get_response(route_result.params);
       break;
     }
 
@@ -94,21 +86,15 @@ void http_connection::process_request()
   case http::verb::post:
   {
     _response.result(http::status::ok);
-    const auto static_match = router::match_static_route(method, target);
-    if (static_match == router::static_route::email)
+    if (route_result.kind == router::Router::match_kind::static_match)
     {
       create_post_response();
       break;
     }
 
-    router::route_params params;
-    if (router::match_dynamic_route(
-            {http::verb::post, std::string(router::EmailBySourceRoute)},
-            method,
-            target,
-            params))
+    if (route_result.kind == router::Router::match_kind::dynamic_match)
     {
-      create_dynamic_post_response(params);
+      create_dynamic_post_response(route_result.params);
       break;
     }
 
