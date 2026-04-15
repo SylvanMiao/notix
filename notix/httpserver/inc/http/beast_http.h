@@ -1,5 +1,6 @@
 #pragma once
 #include "global.h"
+#include "dynamicroute.h"
 #include <iostream>
 
 /*
@@ -55,6 +56,16 @@ public:
   void create_post_response();
 
   /**
+   * @brief 处理动态 GET 路由并构造响应。
+   */
+  void create_dynamic_get_response(const router::route_params &params);
+
+  /**
+   * @brief 处理动态 POST 路由并构造响应。
+   */
+  void create_dynamic_post_response(const router::route_params &params);
+
+  /**
    * @brief 将响应异步写回客户端并记录访问日志。
    */
   void write_response();
@@ -80,6 +91,13 @@ public:
    * @return true 表示 Content-Type 包含 application/json；否则返回 false。
    */
   bool is_json_content_type() const;
+
+  /**
+   * @brief 解析并校验 email JSON 请求体。
+   * @param src_root 解析后的 JSON 对象。
+   * @return true 表示成功；false 表示已写入错误响应。
+   */
+  bool parse_email_body(Json::Value &src_root);
 
   /**
    * @brief 记录传输层错误日志。
