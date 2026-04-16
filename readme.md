@@ -87,7 +87,7 @@
 
 ---
 
-## 下一步建议（按优先级）
+## 下一步计划
 
 1. 进入阶段 C：优先实现 CORS（含 OPTIONS 预检）
 2. SessionManager（Cookie + TTL）
