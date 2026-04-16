@@ -1,6 +1,7 @@
 #pragma once
 #include "global.h"
 #include "router.h"
+#include "middleware.h"
 #include <iostream>
 
 /*
@@ -43,6 +44,12 @@ public:
    *        目前支持get与post
    */
   void process_request();
+
+  /**
+   * @brief 根据路由匹配结果执行最终业务处理。
+   * @param route_result Router 匹配结果。
+   */
+  void dispatch_route(const router::Router::match_result &route_result);
 
   // get消息路由
   /**
@@ -106,6 +113,11 @@ public:
    */
   void log_transport_error(const std::string &phase, const std::string &error);
 
+  /**
+   * @brief 注册连接级默认中间件。
+   */
+  void setup_middlewares();
+
 private:
   tcp::socket _socket;
   beast::flat_buffer _buffer{8192};
@@ -114,6 +126,7 @@ private:
   http::response<http::dynamic_body> _response;
   std::chrono::steady_clock::time_point _request_start;
   std::string _last_error_reason;
+  MiddlewarePipeline _middleware_pipeline;
   // 定时器
   net::steady_timer _timer{
       _socket.get_executor(), std::chrono::seconds(60)};

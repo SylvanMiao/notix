@@ -41,6 +41,7 @@ add_executable(http_server ${HTTPSERVER_SOURCES})
 target_include_directories(http_server PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/inc
     ${CMAKE_CURRENT_SOURCE_DIR}/inc/http
+    ${CMAKE_CURRENT_SOURCE_DIR}/inc/middleware
     ${CMAKE_CURRENT_SOURCE_DIR}/inc/router
     ${JSONCPP_INCLUDE_DIRS}
 )

@@ -7,20 +7,20 @@ program_state_test 主要进行一些路由功能的支持
 namespace program_state_test
 {
   // 返回计数
-  std::size_t request_count()
+  inline std::size_t request_count()
   {
     static std::size_t count = 0;
     return ++count;
   }
 
   // 返回时间
-  std::time_t now()
+  inline std::time_t now()
   {
     return std::time(0);
   }
 
   // 加载html文件
-  bool load_text_file(const std::string &path, std::string &content)
+  inline bool load_text_file(const std::string &path, std::string &content)
   {
     std::ifstream file(path);
     if (!file.is_open())
@@ -35,7 +35,7 @@ namespace program_state_test
   }
 
   // 把html文件里面的字符串内容进行替换
-  void replace_all(std::string &source, const std::string &from, const std::string &to)
+  inline void replace_all(std::string &source, const std::string &from, const std::string &to)
   {
     if (from.empty())
     {

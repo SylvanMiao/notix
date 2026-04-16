@@ -5,6 +5,7 @@
 http_connection::http_connection(tcp::socket socket) : _socket(std::move(socket))
 {
   _request_parser.body_limit(MaxBodySize);
+  setup_middlewares();
 }
 
 void http_connection::start()
@@ -62,6 +63,15 @@ void http_connection::process_request()
   const auto method = _request.method();
   const auto route_result = router::Router::default_router().match(method, _request.target());
 
+  middleware::HttpContext ctx(_request, _response, route_result, _last_error_reason);
+  _middleware_pipeline.execute(ctx, [this, &route_result](middleware::HttpContext &)
+                               { dispatch_route(route_result); });
+  write_response();
+}
+
+void http_connection::dispatch_route(const router::Router::match_result &route_result)
+{
+  const auto method = _request.method();
   switch (method)
   {
   case http::verb::get:
@@ -107,8 +117,11 @@ void http_connection::process_request()
                "invalid request method: " + std::string(_request.method_string()));
     break;
   }
+}
 
-  write_response();
+void http_connection::setup_middlewares()
+{
+  middleware::register_default_middlewares(*this, _middleware_pipeline);
 }
 
 void http_connection::create_get_response()
