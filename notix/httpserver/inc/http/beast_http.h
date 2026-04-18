@@ -75,6 +75,51 @@ public:
   void handle_email(middleware::HttpContext &ctx);
 
   /**
+   * @brief 静态路由处理：/login (GET)
+   */
+  void handle_login_page(middleware::HttpContext &ctx);
+
+  /**
+   * @brief 静态路由处理：/login (POST)
+   */
+  void handle_login_submit(middleware::HttpContext &ctx);
+
+  /**
+   * @brief 静态路由处理：/register (GET)
+   */
+  void handle_register_page(middleware::HttpContext &ctx);
+
+  /**
+   * @brief 静态路由处理：/register (POST)
+   */
+  void handle_register_submit(middleware::HttpContext &ctx);
+
+  /**
+   * @brief 静态路由处理：/me
+   */
+  void handle_me(middleware::HttpContext &ctx);
+
+  /**
+   * @brief 静态路由处理：/app
+   */
+  void handle_app_page(middleware::HttpContext &ctx);
+
+  /**
+   * @brief 静态路由处理：/chat/echo
+   */
+  void handle_chat_echo(middleware::HttpContext &ctx);
+
+  /**
+   * @brief 静态路由处理：/chat/history
+   */
+  void handle_chat_history(middleware::HttpContext &ctx);
+
+  /**
+   * @brief 静态路由处理：/image/process（占位）
+   */
+  void handle_image_process(middleware::HttpContext &ctx);
+
+  /**
    * @brief 动态路由处理：/time/{zone}
    */
   void handle_time_by_zone(middleware::HttpContext &ctx, const router::route_params &params);
@@ -117,6 +162,18 @@ public:
    * @return true 表示成功；false 表示已写入错误响应。
    */
   bool parse_email_body(Json::Value &src_root);
+
+  /**
+   * @brief 解析并校验登录 JSON 请求体。
+   * @param src_root 解析后的 JSON 对象。
+   * @return true 表示成功；false 表示已写入错误响应。
+   */
+  bool parse_login_body(Json::Value &src_root);
+
+  /**
+   * @brief 解析并校验聊天请求体。
+   */
+  bool parse_chat_body(Json::Value &src_root);
 
   /**
    * @brief 记录传输层错误日志。

@@ -11,6 +11,7 @@ find_package(Threads REQUIRED)
 find_package(PkgConfig QUIET)
 if(PkgConfig_FOUND)
     pkg_check_modules(JSONCPP QUIET jsoncpp)
+    pkg_check_modules(MYSQL QUIET mysqlclient)
 endif()
 
 if(NOT JSONCPP_FOUND)
@@ -26,6 +27,20 @@ if(NOT JSONCPP_FOUND)
 
     set(JSONCPP_INCLUDE_DIRS ${JSONCPP_INCLUDE_DIR})
     set(JSONCPP_LIBRARIES ${JSONCPP_LIBRARY})
+endif()
+
+if(NOT MYSQL_FOUND)
+    find_path(MYSQL_INCLUDE_DIR
+        NAMES mysql/mysql.h
+    )
+    find_library(MYSQL_LIBRARY NAMES mysqlclient)
+
+    if(NOT MYSQL_LIBRARY)
+        message(FATAL_ERROR "mysqlclient library not found. Please install libmysqlclient-dev.")
+    endif()
+
+    set(MYSQL_INCLUDE_DIRS ${MYSQL_INCLUDE_DIR})
+    set(MYSQL_LIBRARIES ${MYSQL_LIBRARY})
 endif()
 
 file(GLOB_RECURSE HTTPSERVER_SOURCES CONFIGURE_DEPENDS
@@ -44,12 +59,14 @@ target_include_directories(http_server PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/inc/middleware
     ${CMAKE_CURRENT_SOURCE_DIR}/inc/router
     ${JSONCPP_INCLUDE_DIRS}
+    ${MYSQL_INCLUDE_DIRS}
 )
 
 target_link_libraries(http_server PRIVATE
     Boost::system
     Threads::Threads
     ${JSONCPP_LIBRARIES}
+    ${MYSQL_LIBRARIES}
 )
 
 # 运行目录位于 build 时，自动复制静态资源

@@ -22,7 +22,16 @@ namespace router
 		none,  ///< 未命中静态路由
 		count, ///< `/count`
 		time,  ///< `/time`
-		email  ///< `/email`
+		email, ///< `/email`
+		login_page,   ///< `GET /login`
+		login_submit, ///< `POST /login`
+		register_page,   ///< `GET /register`
+		register_submit, ///< `POST /register`
+		app_page,         ///< `GET /app`
+		chat_history,     ///< `GET /chat/history`
+		chat_echo,        ///< `POST /chat/echo`
+		image_process,    ///< `POST /image/process`
+		me               ///< `GET /me`
 	};
 
 	/**
@@ -51,6 +60,20 @@ namespace router
 	inline constexpr std::string_view TimeRoute = "/time";
 	/** @brief 静态路由：邮箱提交 */
 	inline constexpr std::string_view EmailRoute = "/email";
+	/** @brief 静态路由：登录 */
+	inline constexpr std::string_view LoginRoute = "/login";
+	/** @brief 静态路由：注册 */
+	inline constexpr std::string_view RegisterRoute = "/register";
+	/** @brief 静态路由：功能页 */
+	inline constexpr std::string_view AppRoute = "/app";
+	/** @brief 静态路由：会话 echo */
+	inline constexpr std::string_view ChatEchoRoute = "/chat/echo";
+	/** @brief 静态路由：聊天历史 */
+	inline constexpr std::string_view ChatHistoryRoute = "/chat/history";
+	/** @brief 静态路由：图像处理占位 */
+	inline constexpr std::string_view ImageProcessRoute = "/image/process";
+	/** @brief 静态路由：登录态查询 */
+	inline constexpr std::string_view MeRoute = "/me";
     /** @brief 动态路由：按时区查询时间 */
     inline constexpr std::string_view TimeByZoneRoute = "/time/{zone}";
 	/** @brief 动态路由：按来源提交邮箱 */

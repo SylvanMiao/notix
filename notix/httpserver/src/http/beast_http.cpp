@@ -1,6 +1,8 @@
 #include "beast_http.h"
 #include "program_state_test.h"
 #include "router.h"
+#include "session/session_manager.h"
+
 
 http_connection::http_connection(tcp::socket socket) : _socket(std::move(socket))
 {
@@ -38,6 +40,8 @@ void http_connection::read_request()
             }
 
             self->log_transport_error("read_request", ec.message());
+            boost::system::error_code close_ec;
+            self->_socket.close(close_ec);
           });
 }
 
@@ -65,8 +69,13 @@ void http_connection::process_request()
   const auto route_result = router::Router::default_router().match(method, _request.target());
 
   middleware::HttpContext ctx(_request, _response, route_result, _last_error_reason);
-  _middleware_pipeline.execute(ctx, [this](middleware::HttpContext &ctx)
+  try {
+    _middleware_pipeline.execute(ctx, [this](middleware::HttpContext &ctx)
                                { dispatch_route(ctx); });
+  } catch (const std::exception& e) {
+    std::cerr << "Handler Exception: " << e.what() << std::endl;
+    send_error(http::status::internal_server_error, 1500, e.what());
+  }
   write_response();
 }
 
@@ -129,6 +138,60 @@ void http_connection::register_route_handlers()
     handle_email(ctx);
   };
 
+  _static_handlers[router::static_route::login_page] =
+      [this](middleware::HttpContext &ctx)
+  {
+    handle_login_page(ctx);
+  };
+
+  _static_handlers[router::static_route::login_submit] =
+      [this](middleware::HttpContext &ctx)
+  {
+    handle_login_submit(ctx);
+  };
+
+  _static_handlers[router::static_route::register_page] =
+      [this](middleware::HttpContext &ctx)
+  {
+    handle_register_page(ctx);
+  };
+
+  _static_handlers[router::static_route::register_submit] =
+      [this](middleware::HttpContext &ctx)
+  {
+    handle_register_submit(ctx);
+  };
+
+  _static_handlers[router::static_route::app_page] =
+      [this](middleware::HttpContext &ctx)
+  {
+    handle_app_page(ctx);
+  };
+
+  _static_handlers[router::static_route::chat_echo] =
+      [this](middleware::HttpContext &ctx)
+  {
+    handle_chat_echo(ctx);
+  };
+
+  _static_handlers[router::static_route::chat_history] =
+      [this](middleware::HttpContext &ctx)
+  {
+    handle_chat_history(ctx);
+  };
+
+  _static_handlers[router::static_route::image_process] =
+      [this](middleware::HttpContext &ctx)
+  {
+    handle_image_process(ctx);
+  };
+
+  _static_handlers[router::static_route::me] =
+      [this](middleware::HttpContext &ctx)
+  {
+    handle_me(ctx);
+  };
+
   // 动态路由 handler 注册
   _dynamic_handlers[router::dynamic_route_id::time_by_zone] =
       [this](middleware::HttpContext &ctx, const router::route_params &params)
@@ -141,6 +204,49 @@ void http_connection::register_route_handlers()
   {
     handle_email_by_source(ctx, params);
   };
+}
+
+namespace
+{
+  std::string read_cookie_value(const http::request<http::dynamic_body> &request,
+                                const std::string &key)
+  {
+    if (!request.base().count(http::field::cookie))
+    {
+      return {};
+    }
+
+    std::string cookies(request[http::field::cookie]);
+    std::size_t start = 0;
+    while (start < cookies.size())
+    {
+      auto end = cookies.find(';', start);
+      if (end == std::string::npos)
+      {
+        end = cookies.size();
+      }
+
+      auto pair = cookies.substr(start, end - start);
+      auto eq = pair.find('=');
+      if (eq != std::string::npos)
+      {
+        auto name = pair.substr(0, eq);
+        auto value = pair.substr(eq + 1);
+        while (!name.empty() && name.front() == ' ')
+        {
+          name.erase(name.begin());
+        }
+        if (name == key)
+        {
+          return value;
+        }
+      }
+
+      start = end + 1;
+    }
+
+    return {};
+  }
 }
 
 void http_connection::handle_count(middleware::HttpContext &ctx)
@@ -212,6 +318,347 @@ void http_connection::handle_email(middleware::HttpContext &ctx)
   root["msg"] = "receive email post success";
   std::string jsonstr = root.toStyledString();
   beast::ostream(ctx.response.body()) << jsonstr;
+}
+
+void http_connection::handle_login_page(middleware::HttpContext &ctx)
+{
+  ctx.response.result(http::status::ok);
+  ctx.response.set(http::field::content_type, "text/html; charset=utf-8");
+
+  std::string html;
+  if (program_state_test::load_text_file("static/login.html", html))
+  {
+    beast::ostream(ctx.response.body()) << html;
+    return;
+  }
+
+  beast::ostream(ctx.response.body())
+      << "<html><head><title>Login</title></head><body>"
+      << "<h1>Login</h1>"
+      << "<p>login.html not found</p>"
+      << "</body></html>";
+}
+
+void http_connection::handle_login_submit(middleware::HttpContext &ctx)
+{
+  Json::Value root;
+  if (!parse_login_body(root))
+  {
+    return;
+  }
+
+  SessionConfig config;
+  config.user_file = "static/users.json";
+  config.db_config_file = "static/db.json";
+  config.ttl_seconds = 3600;
+
+  auto &manager = SessionManager::instance();
+  if (!manager.ensure_initialized(config))
+  {
+    send_error(http::status::internal_server_error, 1500, "session manager init failed");
+    return;
+  }
+
+  const auto username = root["username"].asString();
+  const auto password = root["password"].asString();
+  auto user_id = manager.authenticate(username, password);
+  if (!user_id)
+  {
+    send_error(http::status::unauthorized, 1403, "invalid username or password");
+    return;
+  }
+
+  const auto session_id = manager.create_session(*user_id);
+  ctx.response.result(http::status::ok);
+  ctx.response.set(http::field::content_type, "application/json; charset=utf-8");
+  ctx.response.set(http::field::set_cookie,
+                   "SID=" + session_id + "; Path=/; HttpOnly; Max-Age=3600");
+
+  Json::Value resp;
+  resp["error"] = 0;
+  resp["user"] = *user_id;
+  resp["msg"] = "login success";
+  resp["redirect"] = "/app";
+  beast::ostream(ctx.response.body()) << resp.toStyledString();
+}
+
+void http_connection::handle_register_page(middleware::HttpContext &ctx)
+{
+  ctx.response.result(http::status::ok);
+  ctx.response.set(http::field::content_type, "text/html; charset=utf-8");
+
+  std::string html;
+  if (program_state_test::load_text_file("static/register.html", html))
+  {
+    beast::ostream(ctx.response.body()) << html;
+    return;
+  }
+
+  beast::ostream(ctx.response.body())
+      << "<html><head><title>Register</title></head><body>"
+      << "<h1>Register</h1>"
+      << "<p>register.html not found</p>"
+      << "</body></html>";
+}
+
+void http_connection::handle_register_submit(middleware::HttpContext &ctx)
+{
+  Json::Value root;
+  if (!parse_login_body(root))
+  {
+    return;
+  }
+
+  SessionConfig config;
+  config.user_file = "static/users.json";
+  config.db_config_file = "static/db.json";
+  config.ttl_seconds = 3600;
+
+  auto &manager = SessionManager::instance();
+  if (!manager.ensure_initialized(config))
+  {
+    send_error(http::status::internal_server_error, 1500, "session manager init failed");
+    return;
+  }
+
+  std::string error_message;
+  const auto username = root["username"].asString();
+  const auto password = root["password"].asString();
+
+  if (!manager.register_user(username, password, error_message))
+  {
+    send_error(http::status::bad_request, 1406, error_message);
+    return;
+  }
+
+  ctx.response.result(http::status::ok);
+  ctx.response.set(http::field::content_type, "application/json; charset=utf-8");
+
+  Json::Value resp;
+  resp["error"] = 0;
+  resp["user"] = username;
+  resp["msg"] = "register success";
+  beast::ostream(ctx.response.body()) << resp.toStyledString();
+}
+
+void http_connection::handle_me(middleware::HttpContext &ctx)
+{
+  SessionConfig config;
+  config.user_file = "static/users.json";
+  config.db_config_file = "static/db.json";
+  config.ttl_seconds = 3600;
+
+  auto &manager = SessionManager::instance();
+  if (!manager.ensure_initialized(config))
+  {
+    send_error(http::status::internal_server_error, 1500, "session manager init failed");
+    return;
+  }
+
+  const auto session_id = read_cookie_value(ctx.request, "SID");
+  if (session_id.empty())
+  {
+    send_error(http::status::unauthorized, 1403, "missing session");
+    return;
+  }
+
+  auto record = manager.get_session(session_id);
+  if (!record)
+  {
+    send_error(http::status::unauthorized, 1403, "session expired");
+    return;
+  }
+
+  ctx.response.result(http::status::ok);
+  ctx.response.set(http::field::content_type, "application/json; charset=utf-8");
+
+  Json::Value resp;
+  resp["error"] = 0;
+  resp["user"] = record->user_id;
+  resp["msg"] = "session valid";
+  beast::ostream(ctx.response.body()) << resp.toStyledString();
+}
+
+void http_connection::handle_app_page(middleware::HttpContext &ctx)
+{
+  SessionConfig config;
+  config.user_file = "static/users.json";
+  config.db_config_file = "static/db.json";
+  config.ttl_seconds = 3600;
+
+  auto &manager = SessionManager::instance();
+  if (!manager.ensure_initialized(config))
+  {
+    send_error(http::status::internal_server_error, 1500, "session manager init failed");
+    return;
+  }
+
+  const auto session_id = read_cookie_value(ctx.request, "SID");
+  if (session_id.empty() || !manager.get_session(session_id))
+  {
+    send_error(http::status::unauthorized, 1403, "login required");
+    return;
+  }
+
+  ctx.response.result(http::status::ok);
+  ctx.response.set(http::field::content_type, "text/html; charset=utf-8");
+
+  std::string html;
+  if (program_state_test::load_text_file("static/app.html", html))
+  {
+    beast::ostream(ctx.response.body()) << html;
+    return;
+  }
+
+  beast::ostream(ctx.response.body())
+      << "<html><head><title>App</title></head><body>"
+      << "<h1>App</h1>"
+      << "<p>app.html not found</p>"
+      << "</body></html>";
+}
+
+void http_connection::handle_chat_echo(middleware::HttpContext &ctx)
+{
+  Json::Value root;
+  if (!parse_chat_body(root))
+  {
+    return;
+  }
+
+  SessionConfig config;
+  config.user_file = "static/users.json";
+  config.db_config_file = "static/db.json";
+  config.ttl_seconds = 3600;
+
+  auto &manager = SessionManager::instance();
+  if (!manager.ensure_initialized(config))
+  {
+    send_error(http::status::internal_server_error, 1500, "session manager init failed");
+    return;
+  }
+
+  const auto session_id = read_cookie_value(ctx.request, "SID");
+  if (session_id.empty())
+  {
+    send_error(http::status::unauthorized, 1403, "missing session");
+    return;
+  }
+
+  auto record = manager.get_session(session_id);
+  if (!record)
+  {
+    send_error(http::status::unauthorized, 1403, "session expired");
+    return;
+  }
+
+  const auto user_text = root["message"].asString();
+  const auto reply_text = std::string("echo: ") + user_text;
+
+  std::string db_error;
+  if (!manager.append_chat_message(record->session_id, record->user_id, "user", user_text, db_error))
+  {
+    send_error(http::status::internal_server_error, 1501, db_error);
+    return;
+  }
+
+  if (!manager.append_chat_message(record->session_id, record->user_id, "assistant", reply_text, db_error))
+  {
+    send_error(http::status::internal_server_error, 1501, db_error);
+    return;
+  }
+
+  auto history = manager.list_user_chat_messages(record->user_id, 50, db_error);
+  if (!db_error.empty())
+  {
+    send_error(http::status::internal_server_error, 1502, db_error);
+    return;
+  }
+
+  ctx.response.result(http::status::ok);
+  ctx.response.set(http::field::content_type, "application/json; charset=utf-8");
+
+  Json::Value resp;
+  resp["error"] = 0;
+  resp["reply"] = reply_text;
+  resp["user"] = record->user_id;
+  resp["history"] = Json::arrayValue;
+  for (const auto &item : history)
+  {
+    Json::Value row;
+    row["role"] = item.role;
+    row["content"] = item.content;
+    row["created_at"] = static_cast<Json::Int64>(item.created_at_epoch);
+    resp["history"].append(row);
+  }
+
+  beast::ostream(ctx.response.body()) << resp.toStyledString();
+}
+
+void http_connection::handle_chat_history(middleware::HttpContext &ctx)
+{
+  SessionConfig config;
+  config.user_file = "static/users.json";
+  config.db_config_file = "static/db.json";
+  config.ttl_seconds = 3600;
+
+  auto &manager = SessionManager::instance();
+  if (!manager.ensure_initialized(config))
+  {
+    send_error(http::status::internal_server_error, 1500, "session manager init failed");
+    return;
+  }
+
+  const auto session_id = read_cookie_value(ctx.request, "SID");
+  if (session_id.empty())
+  {
+    send_error(http::status::unauthorized, 1403, "missing session");
+    return;
+  }
+
+  auto record = manager.get_session(session_id);
+  if (!record)
+  {
+    send_error(http::status::unauthorized, 1403, "session expired");
+    return;
+  }
+
+  std::string db_error;
+  auto history = manager.list_user_chat_messages(record->user_id, 50, db_error);
+  if (!db_error.empty())
+  {
+    send_error(http::status::internal_server_error, 1502, db_error);
+    return;
+  }
+
+  ctx.response.result(http::status::ok);
+  ctx.response.set(http::field::content_type, "application/json; charset=utf-8");
+
+  Json::Value resp;
+  resp["error"] = 0;
+  resp["user"] = record->user_id;
+  resp["history"] = Json::arrayValue;
+  for (const auto &item : history)
+  {
+    Json::Value row;
+    row["role"] = item.role;
+    row["content"] = item.content;
+    row["created_at"] = static_cast<Json::Int64>(item.created_at_epoch);
+    resp["history"].append(row);
+  }
+
+  beast::ostream(ctx.response.body()) << resp.toStyledString();
+}
+
+void http_connection::handle_image_process(middleware::HttpContext &ctx)
+{
+  ctx.response.result(http::status::not_implemented);
+  ctx.response.set(http::field::content_type, "application/json; charset=utf-8");
+
+  Json::Value resp;
+  resp["error"] = 0;
+  resp["msg"] = "image process endpoint reserved";
+  resp["next"] = "python route integration";
+  beast::ostream(ctx.response.body()) << resp.toStyledString();
 }
 
 void http_connection::handle_time_by_zone(middleware::HttpContext &ctx, const router::route_params &params)
@@ -291,6 +738,85 @@ bool http_connection::parse_email_body(Json::Value &src_root)
   return true;
 }
 
+bool http_connection::parse_login_body(Json::Value &src_root)
+{
+  if (!is_json_content_type())
+  {
+    send_error(http::status::unsupported_media_type, 1415,
+               "content-type must be application/json");
+    return false;
+  }
+
+  if (_request.body().size() == 0)
+  {
+    send_error(http::status::bad_request, 1402, "request body is empty");
+    return false;
+  }
+
+  auto &body = _request.body();
+  auto body_str = boost::beast::buffers_to_string(body.data());
+
+  Json::Reader reader;
+  const bool parse_success = reader.parse(body_str, src_root);
+  if (!parse_success)
+  {
+    send_error(http::status::bad_request, 1001, "invalid json body");
+    return false;
+  }
+
+  if (!src_root.isMember("username") || !src_root["username"].isString() ||
+      src_root["username"].asString().empty())
+  {
+    send_error(http::status::bad_request, 1003,
+               "field 'username' is required and must be a non-empty string");
+    return false;
+  }
+
+  if (!src_root.isMember("password") || !src_root["password"].isString() ||
+      src_root["password"].asString().empty())
+  {
+    send_error(http::status::bad_request, 1004,
+               "field 'password' is required and must be a non-empty string");
+    return false;
+  }
+
+  return true;
+}
+
+bool http_connection::parse_chat_body(Json::Value &src_root)
+{
+  if (!is_json_content_type())
+  {
+    send_error(http::status::unsupported_media_type, 1415,
+               "content-type must be application/json");
+    return false;
+  }
+
+  if (_request.body().size() == 0)
+  {
+    send_error(http::status::bad_request, 1402, "request body is empty");
+    return false;
+  }
+
+  auto body_str = boost::beast::buffers_to_string(_request.body().data());
+  Json::Reader reader;
+  if (!reader.parse(body_str, src_root))
+  {
+    send_error(http::status::bad_request, 1001, "invalid json body");
+    return false;
+  }
+
+  if (!src_root.isMember("message") || !src_root["message"].isString() ||
+      src_root["message"].asString().empty())
+  {
+    send_error(http::status::bad_request, 1005,
+               "field 'message' is required and must be a non-empty string");
+    return false;
+  }
+
+  return true;
+}
+
 void http_connection::write_response()
 {
   auto self = shared_from_this();
@@ -318,6 +844,8 @@ void http_connection::write_response()
         std::cout << std::endl;
 
         self->_socket.shutdown(tcp::socket::shutdown_send, ec);
+        boost::system::error_code close_ec;
+        self->_socket.close(close_ec);
         self->_timer.cancel();
       });
 }

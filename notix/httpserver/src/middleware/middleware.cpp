@@ -85,8 +85,8 @@ namespace middleware
 
 	void register_default_middlewares(http_connection &self, MiddlewarePipeline &pipeline)
 	{
-		pipeline.use([](HttpContext &ctx, Next next)
-									 { HtmlAfterBadge{}(ctx, next); });
+		// pipeline.use([](HttpContext &ctx, Next next)
+		// 							 { HtmlAfterBadge{}(ctx, next); });
 
 		pipeline.use([&self](HttpContext &ctx, Next next)
 								 { MethodGuard{}(self, ctx, next); });

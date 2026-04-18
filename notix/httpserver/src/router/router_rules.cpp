@@ -90,12 +90,52 @@ namespace router
       {
         return static_route::time;
       }
+      if (normalized_target == LoginRoute)
+      {
+        return static_route::login_page;
+      }
+      if (normalized_target == RegisterRoute)
+      {
+        return static_route::register_page;
+      }
+      if (normalized_target == AppRoute)
+      {
+        return static_route::app_page;
+      }
+      if (normalized_target == ChatHistoryRoute)
+      {
+        return static_route::chat_history;
+      }
+      if (normalized_target == MeRoute)
+      {
+        return static_route::me;
+      }
       return static_route::none;
     }
 
     if (method == http::verb::post)
     {
-      return normalized_target == EmailRoute ? static_route::email : static_route::none;
+      if (normalized_target == EmailRoute)
+      {
+        return static_route::email;
+      }
+      if (normalized_target == LoginRoute)
+      {
+        return static_route::login_submit;
+      }
+      if (normalized_target == RegisterRoute)
+      {
+        return static_route::register_submit;
+      }
+      if (normalized_target == ChatEchoRoute)
+      {
+        return static_route::chat_echo;
+      }
+      if (normalized_target == ImageProcessRoute)
+      {
+        return static_route::image_process;
+      }
+      return static_route::none;
     }
 
     return static_route::none;

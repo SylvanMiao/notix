@@ -1,0 +1,139 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>登录</title>
+
+  <style>
+    body {
+      margin: 0;
+      font-family: Arial, sans-serif;
+      background: #f5f6f8;
+
+      /* 居中 */
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      height: 100vh;
+    }
+
+    .card {
+      width: 360px;
+      padding: 24px;
+      border: 1px solid #e5e5e5;
+      border-radius: 12px;
+      background: white;
+      box-shadow: 0 6px 20px rgba(0,0,0,0.08);
+    }
+
+    h1 {
+      text-align: center;
+      margin-bottom: 20px;
+    }
+
+    label {
+      display: block;
+      margin-top: 12px;
+      font-size: 14px;
+      color: #333;
+    }
+
+    input {
+      width: 100%;
+      padding: 10px;
+      margin-top: 6px;
+      border: 1px solid #ddd;
+      border-radius: 6px;
+      outline: none;
+      transition: 0.2s;
+    }
+
+    input:focus {
+      border-color: #409eff;
+      box-shadow: 0 0 0 2px rgba(64,158,255,0.15);
+    }
+
+    button {
+      width: 100%;
+      margin-top: 18px;
+      padding: 10px;
+      border: none;
+      border-radius: 6px;
+      background: #409eff;
+      color: white;
+      font-size: 14px;
+      cursor: pointer;
+    }
+
+    button:hover {
+      background: #2f8ae5;
+    }
+
+    .msg {
+      margin-top: 12px;
+      font-size: 13px;
+      color: #333;
+      text-align: center;
+    }
+
+    a {
+      display: block;
+      margin-top: 14px;
+      text-align: center;
+      font-size: 13px;
+      color: #409eff;
+      text-decoration: none;
+    }
+  </style>
+</head>
+
+<body>
+  <div class="card">
+    <h1>登录</h1>
+
+    <label>用户名
+      <input id="username" type="text" />
+    </label>
+
+    <label>密码
+      <input id="password" type="password" />
+    </label>
+
+    <button id="loginBtn">登录</button>
+
+    <div class="msg" id="msg"></div>
+
+    <a href="/register">没有账号？去注册</a>
+  </div>
+
+  <script>
+    const btn = document.getElementById('loginBtn');
+    const msg = document.getElementById('msg');
+
+    btn.addEventListener('click', async () => {
+      msg.textContent = '登录中...';
+
+      const username = document.getElementById('username').value.trim();
+      const password = document.getElementById('password').value.trim();
+
+      try {
+        const res = await fetch('/login', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ username, password })
+        });
+
+        const data = await res.json();
+        msg.textContent = data.msg || JSON.stringify(data);
+
+        if (res.ok && data.redirect) {
+          window.location.href = data.redirect;
+        }
+      } catch (e) {
+        msg.textContent = '请求失败，请稍后重试';
+      }
+    });
+  </script>
+</body>
+</html>

@@ -1,0 +1,251 @@
+<!doctype html>
+<html lang="zh-CN">
+
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>功能页</title>
+  <style>
+    :root {
+      --bg: #f3f6fb;
+      --panel: #ffffff;
+      --line: #d9e1ef;
+      --text: #1f2937;
+      --primary: #1f6feb;
+      --primary-hover: #1858bd;
+    }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: linear-gradient(135deg, #eef3ff 0%, var(--bg) 50%, #eef8f5 100%);
+      font-family: Arial, sans-serif;
+      color: var(--text);
+    }
+
+    .wrap {
+      max-width: 980px;
+      width: 100%;
+      padding: 16px;
+      display: grid;
+      grid-template-columns: 1.6fr 1fr;
+      gap: 16px;
+    }
+
+    .panel {
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      box-shadow: 0 10px 28px rgba(40, 56, 90, 0.08);
+      padding: 16px;
+    }
+
+    h2 {
+      margin: 0 0 12px;
+      font-size: 18px;
+    }
+
+    .chat-box {
+      height: 420px;
+      overflow: auto;
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      padding: 10px;
+      background: #fbfdff;
+    }
+
+    .row {
+      margin-bottom: 10px;
+      line-height: 1.4;
+      white-space: pre-wrap;
+    }
+
+    .role-user {
+      color: #0b6bcb;
+    }
+
+    .role-assistant {
+      color: #0b8a5b;
+    }
+
+    .input-area {
+      margin-top: 12px;
+      display: flex;
+      gap: 8px;
+    }
+
+    textarea {
+      flex: 1;
+      min-height: 60px;
+      resize: vertical;
+      padding: 10px;
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      outline: none;
+    }
+
+    button {
+      border: none;
+      background: var(--primary);
+      color: #fff;
+      border-radius: 10px;
+      padding: 0 16px;
+      font-size: 14px;
+      cursor: pointer;
+    }
+
+    button:hover {
+      background: var(--primary-hover);
+    }
+
+    .tip {
+      color: #6b7280;
+      font-size: 13px;
+      margin-top: 8px;
+    }
+
+    .badge {
+      display: inline-block;
+      padding: 4px 8px;
+      border-radius: 999px;
+      background: #e8f1ff;
+      color: #2c4b83;
+      font-size: 12px;
+      margin-bottom: 10px;
+    }
+
+    @media (max-width: 860px) {
+      .wrap {
+        grid-template-columns: 1fr;
+      }
+
+      .chat-box {
+        height: 320px;
+      }
+    }
+  </style>
+</head>
+
+<body>
+  <div class="wrap">
+    <section class="panel">
+      <h2>会话对话（Echo）</h2>
+      <div class="badge">Session + MySQL 持久化</div>
+      <div id="chatBox" class="chat-box"></div>
+      <div class="input-area">
+        <textarea id="msgInput" placeholder="输入内容后发送，服务端会以 echo 方式返回"></textarea>
+        <button id="sendBtn">发送</button>
+      </div>
+      <div id="chatTip" class="tip"></div>
+    </section>
+
+    <section class="panel">
+      <h2>图像处理模块</h2>
+      <div class="badge">接口已预留</div>
+      <p>当前阶段先保留接口，不做具体图像算法处理。</p>
+      <p>预留 API：POST /image/process</p>
+      <button id="imgBtn">调用占位接口</button>
+      <div id="imgTip" class="tip"></div>
+    </section>
+  </div>
+
+  <script>
+    const chatBox = document.getElementById('chatBox');
+    const msgInput = document.getElementById('msgInput');
+    const chatTip = document.getElementById('chatTip');
+    const imgTip = document.getElementById('imgTip');
+
+    function renderHistory(history) {
+      chatBox.innerHTML = '';
+      for (const item of history) {
+        const row = document.createElement('div');
+        row.className = 'row';
+        const role = document.createElement('strong');
+        role.className = 'role-' + item.role;
+        role.textContent = '[' + item.role + '] ';
+        row.appendChild(role);
+        row.appendChild(document.createTextNode(item.content || ''));
+        chatBox.appendChild(row);
+      }
+      chatBox.scrollTop = chatBox.scrollHeight;
+    }
+
+    async function loadHistory() {
+      chatTip.textContent = '加载历史中...';
+      try {
+        const res = await fetch('/chat/history');
+        const data = await res.json();
+        if (!res.ok) {
+          chatTip.textContent = data.message || '加载历史失败';
+          return;
+        }
+
+        renderHistory(data.history || []);
+        chatTip.textContent = (data.history || []).length > 0
+          ? '已加载历史对话'
+          : '当前账号暂无历史对话';
+      } catch (e) {
+        chatTip.textContent = '加载历史失败，请检查服务连接';
+      }
+    }
+
+    async function sendMessage() {
+      const message = msgInput.value.trim();
+      if (!message) {
+        chatTip.textContent = '请输入消息';
+        return;
+      }
+
+      chatTip.textContent = '发送中...';
+      try {
+        const res = await fetch('/chat/echo', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ message })
+        });
+
+        const data = await res.json();
+        if (!res.ok) {
+          chatTip.textContent = data.message || '发送失败';
+          return;
+        }
+
+        renderHistory(data.history || []);
+        msgInput.value = '';
+        chatTip.textContent = '已保存到会话历史';
+      } catch (e) {
+        chatTip.textContent = '请求失败，请检查服务连接';
+      }
+    }
+
+    document.getElementById('sendBtn').addEventListener('click', sendMessage);
+    msgInput.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter' && !e.shiftKey) {
+        e.preventDefault();
+        sendMessage();
+      }
+    });
+
+    document.getElementById('imgBtn').addEventListener('click', async () => {
+      imgTip.textContent = '调用中...';
+      try {
+        const res = await fetch('/image/process', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({})
+        });
+        const data = await res.json();
+        imgTip.textContent = data.msg || JSON.stringify(data);
+      } catch (e) {
+        imgTip.textContent = '请求失败';
+      }
+    });
+
+    loadHistory();
+  </script>
+</body>
+
+</html>
