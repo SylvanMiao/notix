@@ -25,13 +25,24 @@ namespace router
 		email  ///< `/email`
 	};
 
+	/**
+	 * @brief 动态路由枚举
+	 */
+	enum class dynamic_route_id
+	{
+		none,          ///< 未命中动态路由
+		time_by_zone,  ///< `/time/{zone}`
+		email_by_source ///< `/email/{source}`
+	};
+
     /**
      * @brief 动态路由规则
      */
-    struct dynamic_route
+	struct dynamic_route
 	{
-		http::verb method;   ///< 规则对应 HTTP 方法
-		std::string pattern; ///< 动态路由模板，如 `/email/{source}`
+		http::verb method;      ///< 规则对应 HTTP 方法
+		std::string pattern;    ///< 动态路由模板，如 `/email/{source}`
+		dynamic_route_id id;    ///< 动态路由标识，用于 handler 注册
 	};
 
 	/** @brief 静态路由：请求计数页面 */

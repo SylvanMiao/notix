@@ -2,7 +2,9 @@
 #include "global.h"
 #include "router.h"
 #include "middleware.h"
+#include <functional>
 #include <iostream>
+#include <unordered_map>
 
 /*
 beast的http类
@@ -46,31 +48,41 @@ public:
   void process_request();
 
   /**
-   * @brief 根据路由匹配结果执行最终业务处理。
-   * @param route_result Router 匹配结果。
+   * @brief 根据路由匹配结果执行最终业务处理
+   * @param ctx 中间件上下文
    */
-  void dispatch_route(const router::Router::match_result &route_result);
+  void dispatch_route(middleware::HttpContext &ctx);
 
   // get消息路由
   /**
-   * @brief 处理 GET 请求路由并构造响应。
+   * @brief 注册路由与 handler 的对应关系。
    */
-  void create_get_response();
+  void register_route_handlers();
 
   /**
-   * @brief 处理 POST 请求路由并构造响应。
+   * @brief 静态路由处理：/count
    */
-  void create_post_response();
+  void handle_count(middleware::HttpContext &ctx);
 
   /**
-   * @brief 处理动态 GET 路由并构造响应。
+   * @brief 静态路由处理：/time
    */
-  void create_dynamic_get_response(const router::route_params &params);
+  void handle_time(middleware::HttpContext &ctx);
 
   /**
-   * @brief 处理动态 POST 路由并构造响应。
+   * @brief 静态路由处理：/email (POST)
    */
-  void create_dynamic_post_response(const router::route_params &params);
+  void handle_email(middleware::HttpContext &ctx);
+
+  /**
+   * @brief 动态路由处理：/time/{zone}
+   */
+  void handle_time_by_zone(middleware::HttpContext &ctx, const router::route_params &params);
+
+  /**
+   * @brief 动态路由处理：/email/{source}
+   */
+  void handle_email_by_source(middleware::HttpContext &ctx, const router::route_params &params);
 
   /**
    * @brief 将响应异步写回客户端并记录访问日志。
@@ -127,6 +139,13 @@ private:
   std::chrono::steady_clock::time_point _request_start;
   std::string _last_error_reason;
   MiddlewarePipeline _middleware_pipeline;
+
+  using StaticHandler = std::function<void(middleware::HttpContext &)>;
+  using DynamicHandler = std::function<void(middleware::HttpContext &, const router::route_params &)>;
+
+  // 使用枚举作为 key，避免在 http_connection 中写大量 if/else 分支。
+  std::unordered_map<router::static_route, StaticHandler> _static_handlers;
+  std::unordered_map<router::dynamic_route_id, DynamicHandler> _dynamic_handlers;
   // 定时器
   net::steady_timer _timer{
       _socket.get_executor(), std::chrono::seconds(60)};

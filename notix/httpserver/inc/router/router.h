@@ -32,6 +32,7 @@ namespace router
     {
       match_kind kind{match_kind::none};             ///< 匹配结果类型
       static_route static_target{static_route::none}; ///< 静态路由类型（仅 static_match 时有效）
+      dynamic_route_id dynamic_target{dynamic_route_id::none}; ///< 动态路由类型（仅 dynamic_match 时有效）
       route_params params{};                         ///< 动态参数（仅 dynamic_match 时有效）
     };
 
@@ -45,7 +46,7 @@ namespace router
      * @param method 路由对应的 HTTP 方法
      * @param pattern 动态路由模板（示例：`/time/{zone}`）
      */
-    void add_dynamic_route(http::verb method, std::string pattern);
+    void add_dynamic_route(dynamic_route_id id, http::verb method, std::string pattern);
 
     /**
      * @brief 匹配请求路由

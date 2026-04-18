@@ -4,13 +4,13 @@ namespace router
 {
   Router::Router()
   {
-    add_dynamic_route(http::verb::get, std::string(TimeByZoneRoute));
-    add_dynamic_route(http::verb::post, std::string(EmailBySourceRoute));
+    add_dynamic_route(dynamic_route_id::time_by_zone, http::verb::get, std::string(TimeByZoneRoute));
+    add_dynamic_route(dynamic_route_id::email_by_source, http::verb::post, std::string(EmailBySourceRoute));
   }
 
-  void Router::add_dynamic_route(http::verb method, std::string pattern)
+  void Router::add_dynamic_route(dynamic_route_id id, http::verb method, std::string pattern)
   {
-    dynamic_routes_.push_back(dynamic_route{method, std::move(pattern)});
+    dynamic_routes_.push_back(dynamic_route{method, std::move(pattern), id});
   }
 
   Router::match_result Router::match(http::verb method, std::string_view target) const
@@ -34,6 +34,7 @@ namespace router
       if (match_dynamic_route(route, method, normalized_target, params))
       {
         result.kind = match_kind::dynamic_match;
+        result.dynamic_target = route.id;
         result.params = std::move(params);
         return result;
       }
